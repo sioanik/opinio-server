@@ -188,6 +188,18 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/posts/:email', verifyToken, async (req, res) => {
+            const result = await postsCollection.find({author_email : req.params.email}).toArray()
+            res.send(result)
+        })
+
+        app.delete('/posts/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await postsCollection.deleteOne(query);
+            res.send(result);
+          });
+
 
 
         // Connect the client to the server	(optional starting in v4.7)
