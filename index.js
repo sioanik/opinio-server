@@ -59,6 +59,7 @@ async function run() {
         const db = client.db('nomadnestDB')
         const usersCollection = db.collection('users')
         const postsCollection = db.collection('posts')
+        const commentsCollection = db.collection('comments')
 
 
         // verify admin
@@ -193,12 +194,39 @@ async function run() {
             res.send(result)
         })
 
-        app.delete('/posts/:id', async (req, res) => {
+        app.delete('/posts/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
             const result = await postsCollection.deleteOne(query);
             res.send(result);
           });
+
+
+        //   comments related apis 
+        app.get('/comments/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { post_id: id }
+            const result = await commentsCollection.find(query).toArray()
+            res.send(result)
+        })
+
+
+        app.patch('/comments/:id', async (req, res) => {
+            const feedback = req.body
+            console.log(feedback.feedback);
+            // return
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+              $set: {
+                feedback: feedback.feedback
+              }
+            }
+            const result = await commentsCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+          })
+
+
 
 
 
