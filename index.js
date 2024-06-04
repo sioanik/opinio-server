@@ -195,7 +195,7 @@ async function run() {
         })
 
         app.get('/posts/:email', verifyToken, async (req, res) => {
-            const result = await postsCollection.find({author_email : req.params.email}).toArray()
+            const result = await postsCollection.find({ author_email: req.params.email }).toArray()
             res.send(result)
         })
 
@@ -204,7 +204,7 @@ async function run() {
             const query = { _id: new ObjectId(id) }
             const result = await postsCollection.deleteOne(query);
             res.send(result);
-          });
+        });
 
 
         //   comments related apis 
@@ -223,24 +223,65 @@ async function run() {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
-              $set: {
-                feedback: feedback.feedback
-              }
+                $set: {
+                    feedback: feedback.feedback
+                }
             }
             const result = await commentsCollection.updateOne(filter, updatedDoc);
             res.send(result);
-          })
+        })
+
+
+        app.get('/comments', async (req, res) => {
+            const query = { feedback: { $exists: true, $ne: null, $ne: false } };
+            const result = await commentsCollection.find(query).toArray()
+            res.send(result)
+        })
 
 
 
         //   announcements related apis 
-        //   annCollection
         app.post('/announcements', verifyToken, async (req, res) => {
             const newPost = req.body
             // console.log(newBook)
             const result = await annCollection.insertOne(newPost)
             res.send(result)
         })
+
+
+        // violation warning related apis 
+        app.patch('/users/give-warning/:email', verifyToken, verifyAdmin, async (req, res) => {
+            const email = req.params.email;
+            console.log(email);
+            // return
+            const filter = { email: email };
+            const updatedDoc = {
+                $set: {
+                    warning: 'Your account is at risk! You have violated our rules. Be careful commenting next time!'
+                }
+            }
+            const result = await usersCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+
+
+        app.patch('/users/remove-warning/:email', verifyToken, verifyAdmin, async (req, res) => {
+            const email = req.params.email;
+            // console.log(email);
+            // return
+            const filter = { email: email };
+            const updatedDoc = {
+                $set: {
+                    warning: ''
+                }
+            }
+            const result = await usersCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+
+
+
+
 
 
         // Connect the client to the server	(optional starting in v4.7)
