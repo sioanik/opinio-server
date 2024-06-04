@@ -60,6 +60,7 @@ async function run() {
         const usersCollection = db.collection('users')
         const postsCollection = db.collection('posts')
         const commentsCollection = db.collection('comments')
+        const annCollection = db.collection('announcements')
 
 
         // verify admin
@@ -133,6 +134,10 @@ async function run() {
             const result = await usersCollection.updateOne(filter, updatedDoc);
             res.send(result);
         })
+
+
+        // announcements related apis 
+
 
 
 
@@ -228,6 +233,14 @@ async function run() {
 
 
 
+        //   announcements related apis 
+        //   annCollection
+        app.post('/announcements', verifyToken, async (req, res) => {
+            const newPost = req.body
+            // console.log(newBook)
+            const result = await annCollection.insertOne(newPost)
+            res.send(result)
+        })
 
 
         // Connect the client to the server	(optional starting in v4.7)
