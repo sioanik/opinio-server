@@ -206,6 +206,11 @@ async function run() {
             res.send(result);
         });
 
+        app.get('/allposts', async (req, res) => {
+            const result = await postsCollection.find().toArray()
+            res.send(result)
+        })
+
 
         //   comments related apis 
         app.get('/comments/:id', async (req, res) => {
@@ -277,6 +282,28 @@ async function run() {
             }
             const result = await usersCollection.updateOne(filter, updatedDoc);
             res.send(result);
+        })
+
+
+
+        // search related api 
+        app.get('/tags', async (req, res) => {
+            const filter = req.query
+            console.log(filter);
+            const query ={
+                tag: {$regex: filter.search, $options: 'i'}
+            }
+
+            // const options = {
+            //     sort: {
+                    
+            //     }
+            // }
+
+            const cursor = postsCollection.find(query)
+            const result = await cursor.toArray()
+            console.log(result);
+            res.send(result)
         })
 
 
