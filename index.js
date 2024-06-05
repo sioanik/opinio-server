@@ -61,6 +61,7 @@ async function run() {
         const postsCollection = db.collection('posts')
         const commentsCollection = db.collection('comments')
         const annCollection = db.collection('announcements')
+        const tagsCollection = db.collection('tags')
 
 
         // verify admin
@@ -287,7 +288,7 @@ async function run() {
 
 
         // search related api 
-        app.get('/tags', async (req, res) => {
+        app.get('/tag-posts', async (req, res) => {
             const filter = req.query
             console.log(filter);
             const query ={
@@ -307,6 +308,11 @@ async function run() {
         })
 
 
+        // tags related api 
+        app.get('/tags', async (req, res) => {
+            const result = await tagsCollection.find().toArray()
+            res.send(result)
+        })
 
 
 
