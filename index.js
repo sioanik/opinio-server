@@ -4,6 +4,7 @@ require('dotenv').config()
 const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const cookieParser = require('cookie-parser')
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const port = process.env.PORT || 5000
 
@@ -125,7 +126,7 @@ async function run() {
 
         app.patch('/users/admin/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
-            console.log(id);
+            // console.log(id);
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
                 $set: {
@@ -207,10 +208,82 @@ async function run() {
             res.send(result);
         });
 
-        app.get('/allposts', async (req, res) => {
-            const result = await postsCollection.find().toArray()
+        app.get('/post/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const query = { _id: new ObjectId(id) }
+            const result = await postsCollection.findOne(query);
+            console.log(result);
+            res.send(result);
+        });
+
+        app.get('/allpostsdefault', async (req, res) => {
+            const result = await postsCollection.find().sort({ post_time: -1 }).toArray()
             res.send(result)
         })
+
+        app.get('/allpostssorted', async (req, res) => {
+            try {
+                // Check if the collection has documents
+                const posts = await postsCollection.find().toArray();
+                console.log('All posts:', posts);
+
+                // Verify the field names in a sample document
+                const samplePost = await postsCollection.findOne();
+                console.log('Sample post:', samplePost);
+
+                // Check intermediate result after adding the voteDifference field
+                const addFieldsStage = await postsCollection.aggregate([
+                    {
+                        $addFields: {
+                            voteDifference: { $subtract: ["$upvote", "$downvote"] }
+                        }
+                    }
+                ]).toArray();
+                console.log('After addFields stage:', addFieldsStage);
+
+                // Perform the full aggregation
+                const sortedPosts = await postsCollection.aggregate([
+                    {
+                        $addFields: {
+                            voteDifference: { $subtract: ["$upvote", "$downvote"] }
+                        }
+                    },
+                    {
+                        $sort: {
+                            voteDifference: -1
+                        }
+                    }
+                ]).toArray();
+
+                res.send(sortedPosts);
+            } catch (err) {
+                console.error('Error occurred:', err);
+                res.status(500).send('Internal Server Error');
+            }
+        });
+
+
+
+
+        // search related api 
+        app.get('/tag-posts', async (req, res) => {
+            const filter = req.query
+            // console.log(filter);
+            const query = {
+                tag: { $regex: filter.search, $options: 'i' }
+            }
+
+            const options = {
+                sort: { post_time: -1 }
+            }
+
+            const cursor = postsCollection.find(query, options)
+            const result = await cursor.toArray()
+            // console.log(result);
+            res.send(result)
+        })
+
 
 
         //   comments related apis 
@@ -224,7 +297,7 @@ async function run() {
 
         app.patch('/comments/:id', async (req, res) => {
             const feedback = req.body
-            console.log(feedback.feedback);
+            // console.log(feedback.feedback);
             // return
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
@@ -258,7 +331,7 @@ async function run() {
         // violation warning related apis 
         app.patch('/users/give-warning/:email', verifyToken, verifyAdmin, async (req, res) => {
             const email = req.params.email;
-            console.log(email);
+            // console.log(email);
             // return
             const filter = { email: email };
             const updatedDoc = {
@@ -287,25 +360,6 @@ async function run() {
 
 
 
-        // search related api 
-        app.get('/tag-posts', async (req, res) => {
-            const filter = req.query
-            console.log(filter);
-            const query ={
-                tag: {$regex: filter.search, $options: 'i'}
-            }
-
-            // const options = {
-            //     sort: {
-                    
-            //     }
-            // }
-
-            const cursor = postsCollection.find(query)
-            const result = await cursor.toArray()
-            console.log(result);
-            res.send(result)
-        })
 
 
         // tags related api 
@@ -313,6 +367,35 @@ async function run() {
             const result = await tagsCollection.find().toArray()
             res.send(result)
         })
+
+
+        // announcements related apis 
+        app.get('/announcements', async (req, res) => {
+            const result = await annCollection.find().toArray()
+            res.send(result)
+        })
+
+
+
+
+        // payments related apis 
+        // payment intent
+        app.post('/create-payment-intent', async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+            console.log(amount, 'amount inside the intent')
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+        });
+
 
 
 
