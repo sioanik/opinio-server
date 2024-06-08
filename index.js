@@ -63,6 +63,7 @@ async function run() {
         const commentsCollection = db.collection('comments')
         const annCollection = db.collection('announcements')
         const tagsCollection = db.collection('tags')
+        const paymentsCollection = db.collection('payments')
 
 
         // verify admin
@@ -210,12 +211,18 @@ async function run() {
 
         app.get('/post/:id', async (req, res) => {
             const id = req.params.id;
-            console.log(id);
+            // console.log(id);
             const query = { _id: new ObjectId(id) }
             const result = await postsCollection.findOne(query);
-            console.log(result);
+            // console.log(result);
             res.send(result);
         });
+
+
+
+
+
+
 
         app.get('/allpostsdefault', async (req, res) => {
             const result = await postsCollection.find().sort({ post_time: -1 }).toArray()
@@ -226,11 +233,11 @@ async function run() {
             try {
                 // Check if the collection has documents
                 const posts = await postsCollection.find().toArray();
-                console.log('All posts:', posts);
+                // console.log('All posts:', posts);
 
                 // Verify the field names in a sample document
                 const samplePost = await postsCollection.findOne();
-                console.log('Sample post:', samplePost);
+                // console.log('Sample post:', samplePost);
 
                 // Check intermediate result after adding the voteDifference field
                 const addFieldsStage = await postsCollection.aggregate([
@@ -240,7 +247,7 @@ async function run() {
                         }
                     }
                 ]).toArray();
-                console.log('After addFields stage:', addFieldsStage);
+                // console.log('After addFields stage:', addFieldsStage);
 
                 // Perform the full aggregation
                 const sortedPosts = await postsCollection.aggregate([
@@ -265,7 +272,6 @@ async function run() {
 
 
 
-
         // search related api 
         app.get('/tag-posts', async (req, res) => {
             const filter = req.query
@@ -286,7 +292,137 @@ async function run() {
 
 
 
+        // // Get all posts data from db for pagination
+        // app.get('/all-posts', async (req, res) => {
+        //     const size = parseInt(req.query.size)
+        //     const page = parseInt(req.query.page) - 1
+        //     // const filter = req.query.filter
+        //     const sort = req.query.sort
+        //     const search = req.query.search
+        //     console.log(size, page, sort, search)
+
+        //     // const result = await postsCollection.find().sort({ post_time: -1 }).toArray()
+        //     let query = {}
+        //     if (search) query = {
+        //         tag: { $regex: search, $options: 'i' }
+        //         // let query = {
+        //         //     tag: { $regex: search, $options: 'i' },
+        //     }
+        //     let options = {}
+        //     // if (!sort) options = { sort: { deadline: sort === 'asc' ? 1 : -1 } }
+        //     if (sort=='false') 
+        //         options = { sort: { post_time: -1 } }
+        //     if (sort == 'true') options = {
+        //         $expr: { $subtract: ["$upvote", "$downvote"] }
+        //     }
+        //     const result = await postsCollection
+        //         // .find(query, options)
+        //         .find(query, options)
+        //         .skip(page * size)
+        //         .limit(size)
+        //         .toArray()
+
+        //     res.send(result)
+        // })
+
+
+        app.get('/all-posts', async (req, res) => {
+            const size = parseInt(req.query.size);
+            const page = parseInt(req.query.page) - 1;
+            const sort = req.query.sort;
+            const search = req.query.search;
+            console.log(size, page, sort, search);
+        
+            let matchStage = {};
+            if (search) {
+                matchStage = {
+                    tag: { $regex: search, $options: 'i' }
+                };
+            }
+        
+            let sortStage = {};
+            if (sort === 'false') {
+                sortStage = { post_time: -1 };
+            } else if (sort === 'true') {
+                sortStage = { $subtract: ["$upvote", "$downvote"] };
+            }
+        
+            try {
+                const pipeline = [
+                    { $match: matchStage },
+                    {
+                        $addFields: {
+                            voteDifference: { $subtract: ["$upvote", "$downvote"] }
+                        }
+                    },
+                    { $sort: sort === 'true' ? { voteDifference: -1 } : { post_time: -1 } },
+                    { $skip: page * size },
+                    { $limit: size }
+                ];
+        
+                const result = await postsCollection.aggregate(pipeline).toArray();
+                
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching posts:', error);
+                res.status(500).send('An error occurred while fetching posts.');
+            }
+        });
+        
+
+
+
+
+        // Get all posts data count from db
+        app.get('/posts-count', async (req, res) => {
+            // const filter = req.query.filter
+            const search = req.query.search
+            let query = {}
+            if (search) { query.tag = { $regex: search, $options: 'i' } }
+            // if (filter) query.category = filter
+            const count = await postsCollection.countDocuments(query)
+
+            res.send({ count })
+        })
+
+
+
+
+
+
+        // post vote related api 
+
+        app.put('/upvote/:id', async (req, res) => {
+            const id = req.params.id;
+            // console.log(id);
+            const query = { _id: new ObjectId(id) }
+            const result = await postsCollection.updateOne(query, { $inc: { upvote: +1 } })
+            res.send(result);
+        });
+
+        app.put('/downvote/:id', async (req, res) => {
+            const id = req.params.id;
+            // console.log(id);
+            const query = { _id: new ObjectId(id) }
+            const result = await postsCollection.updateOne(query, { $inc: { downvote: +1 } })
+            res.send(result);
+        });
+
+
+
+
+
+
+
+
         //   comments related apis 
+        app.post('/postComments', async (req, res) => {
+            const newComment = req.body
+            // console.log(newBook)
+            const result = await commentsCollection.insertOne(newComment)
+            res.send(result)
+        })
+
         app.get('/comments/:id', async (req, res) => {
             const id = req.params.id;
             const query = { post_id: id }
@@ -395,6 +531,30 @@ async function run() {
                 clientSecret: paymentIntent.client_secret
             })
         });
+
+
+        app.post('/payments', verifyToken, async (req, res) => {
+            const payment = req.body;
+            const paymentResult = await paymentsCollection.insertOne(payment);
+            res.send(paymentResult)
+
+
+        })
+
+        app.patch('/users/make-gold/:email', verifyToken, async (req, res) => {
+            const email = req.params.email;
+            // console.log(email);
+            // return
+            const filter = { email: email };
+            const updatedDoc = {
+                $set: {
+                    status: 'Gold'
+                }
+            }
+            const result = await usersCollection.updateOne(filter, updatedDoc);
+            console.log(result);
+            res.send(result);
+        })
 
 
 
