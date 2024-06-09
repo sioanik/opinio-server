@@ -11,7 +11,7 @@ const port = process.env.PORT || 5000
 
 // middleware
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: ['http://localhost:5173', 'https://project-nomadnest.web.app', 'https://project-nomadnest.firebaseapp.com'],
     credentials: true,
     optionSuccessStatus: 200,
 }
@@ -88,7 +88,7 @@ async function run() {
             res
                 .cookie('token', token, {
                     httpOnly: true,
-                    secure: process.env.NODE_ENV === 'production',
+                    secure: process.env.NODE_ENV === 'production' ? true : false,
                     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
                 })
                 .send({ success: true })
@@ -100,7 +100,7 @@ async function run() {
                 res
                     .clearCookie('token', {
                         maxAge: 0,
-                        secure: process.env.NODE_ENV === 'production',
+                        secure: process.env.NODE_ENV === 'production' ? true : false,
                         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
                     })
                     .send({ success: true })
@@ -139,50 +139,34 @@ async function run() {
         })
 
 
-        // announcements related apis 
 
-
-
-
-        // save a user data in db
-        // app.put('/user', async (req, res) => {
-        //     const user = req.body
-
-        //     const query = { email: user?.email }
-        //     // check if user already exists in db
-        //     const isExist = await usersCollection.findOne(query)
-        //     if (isExist) {
-        //         return res.send(isExist)
-
-        //     }
-
-        //     // save user for the first time
-        //     const options = { upsert: true }
-        //     const updateDoc = {
-        //         $set: {
-        //             ...user,
-        //             timestamp: Date.now(),
-        //         },
-        //     }
-        //     const result = await usersCollection.updateOne(query, updateDoc, options)
-        //     // // welcome new user
-        //     // sendEmail(user?.email, {
-        //     //     subject: 'Welcome to NomadNest!',
-        //     //     message: `Hope you will find you next destination`,
-        //     // })
-        //     res.send(result)
-        // })
-
-
+        // ManageUsers------------- --------------- -------------
         // get all users data
         app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
-            const result = await usersCollection.find().toArray()
+            const size = parseInt(req.query.size)
+            const page = parseInt(req.query.page) - 1
+            // console.log(size, page)
+
+            const result = await usersCollection
+                .find()
+                .skip(page * size)
+                .limit(size)
+                .toArray()
             res.send(result)
         })
 
+        // Get all users data count from db
+        app.get('/users-count', async (req, res) => {
+            const count = await usersCollection.countDocuments()
+            res.send({ count })
+        })
+        // ManageUsers------------- --------------- -------------
+
+
+
 
         // get a user info by email
-        app.get('/user/:email', verifyToken, async (req, res) => {
+        app.get('/user/:email', async (req, res) => {
             const email = req.params.email
             const result = await usersCollection.findOne({ email })
             res.send(result)
@@ -190,6 +174,8 @@ async function run() {
 
 
         // post related apis 
+
+
         app.post('/posts', verifyToken, async (req, res) => {
             const newPost = req.body
             // console.log(newBook)
@@ -197,10 +183,11 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/posts/:email', verifyToken, async (req, res) => {
-            const result = await postsCollection.find({ author_email: req.params.email }).toArray()
+        app.get('/all-posts-count', async (req, res) => {
+            const result = await postsCollection.find().toArray()
             res.send(result)
         })
+
 
         app.delete('/posts/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
@@ -218,58 +205,30 @@ async function run() {
             res.send(result);
         });
 
+        // My Posts------------- --------------- -------------
+        app.get('/posts/:email', verifyToken, async (req, res) => {
+            const size = parseInt(req.query.size)
+            const page = parseInt(req.query.page) - 1
+            // console.log(size, page)
+            const query = { author_email: req.params.email }
+            // const result = await postsCollection.find().toArray()
 
-
-
-
-
-
-        app.get('/allpostsdefault', async (req, res) => {
-            const result = await postsCollection.find().sort({ post_time: -1 }).toArray()
+            const result = await postsCollection
+                .find(query)
+                .skip(page * size)
+                .limit(size)
+                .toArray()
             res.send(result)
         })
 
-        app.get('/allpostssorted', async (req, res) => {
-            try {
-                // Check if the collection has documents
-                const posts = await postsCollection.find().toArray();
-                // console.log('All posts:', posts);
-
-                // Verify the field names in a sample document
-                const samplePost = await postsCollection.findOne();
-                // console.log('Sample post:', samplePost);
-
-                // Check intermediate result after adding the voteDifference field
-                const addFieldsStage = await postsCollection.aggregate([
-                    {
-                        $addFields: {
-                            voteDifference: { $subtract: ["$upvote", "$downvote"] }
-                        }
-                    }
-                ]).toArray();
-                // console.log('After addFields stage:', addFieldsStage);
-
-                // Perform the full aggregation
-                const sortedPosts = await postsCollection.aggregate([
-                    {
-                        $addFields: {
-                            voteDifference: { $subtract: ["$upvote", "$downvote"] }
-                        }
-                    },
-                    {
-                        $sort: {
-                            voteDifference: -1
-                        }
-                    }
-                ]).toArray();
-
-                res.send(sortedPosts);
-            } catch (err) {
-                console.error('Error occurred:', err);
-                res.status(500).send('Internal Server Error');
-            }
-        });
-
+        // Get all users data count from db
+        app.get('/my-posts-count', async (req, res) => {
+            const query = { author_email: req.query.email }
+            // console.log(req.query.email);
+            const count = await postsCollection.countDocuments(query)
+            res.send({ count })
+        })
+        // My Posts------------- --------------- -------------
 
 
         // search related api 
@@ -291,62 +250,33 @@ async function run() {
         })
 
 
-
-        // // Get all posts data from db for pagination
-        // app.get('/all-posts', async (req, res) => {
-        //     const size = parseInt(req.query.size)
-        //     const page = parseInt(req.query.page) - 1
-        //     // const filter = req.query.filter
-        //     const sort = req.query.sort
-        //     const search = req.query.search
-        //     console.log(size, page, sort, search)
-
-        //     // const result = await postsCollection.find().sort({ post_time: -1 }).toArray()
-        //     let query = {}
-        //     if (search) query = {
-        //         tag: { $regex: search, $options: 'i' }
-        //         // let query = {
-        //         //     tag: { $regex: search, $options: 'i' },
-        //     }
-        //     let options = {}
-        //     // if (!sort) options = { sort: { deadline: sort === 'asc' ? 1 : -1 } }
-        //     if (sort=='false') 
-        //         options = { sort: { post_time: -1 } }
-        //     if (sort == 'true') options = {
-        //         $expr: { $subtract: ["$upvote", "$downvote"] }
-        //     }
-        //     const result = await postsCollection
-        //         // .find(query, options)
-        //         .find(query, options)
-        //         .skip(page * size)
-        //         .limit(size)
-        //         .toArray()
-
-        //     res.send(result)
-        // })
-
-
         app.get('/all-posts', async (req, res) => {
+            if (!req.query.size) {
+                req.query.size = '4'
+            }
+            if (!req.query.page) {
+                req.query.page = '1'
+            }
             const size = parseInt(req.query.size);
             const page = parseInt(req.query.page) - 1;
             const sort = req.query.sort;
             const search = req.query.search;
-            console.log(size, page, sort, search);
-        
+            // console.log(size, page, sort, search);
+
             let matchStage = {};
             if (search) {
                 matchStage = {
                     tag: { $regex: search, $options: 'i' }
                 };
             }
-        
+
             let sortStage = {};
             if (sort === 'false') {
                 sortStage = { post_time: -1 };
             } else if (sort === 'true') {
                 sortStage = { $subtract: ["$upvote", "$downvote"] };
             }
-        
+
             try {
                 const pipeline = [
                     { $match: matchStage },
@@ -359,16 +289,16 @@ async function run() {
                     { $skip: page * size },
                     { $limit: size }
                 ];
-        
+
                 const result = await postsCollection.aggregate(pipeline).toArray();
-                
+
                 res.send(result);
             } catch (error) {
                 console.error('Error fetching posts:', error);
                 res.status(500).send('An error occurred while fetching posts.');
             }
         });
-        
+
 
 
 
@@ -416,6 +346,12 @@ async function run() {
 
 
         //   comments related apis 
+
+        app.get('/all-comments', async (req, res) => {
+            const result = await commentsCollection.find().toArray()
+            res.send(result)
+        })
+
         app.post('/postComments', async (req, res) => {
             const newComment = req.body
             // console.log(newBook)
@@ -448,10 +384,28 @@ async function run() {
 
 
         app.get('/comments', async (req, res) => {
+            const size = parseInt(req.query.size)
+            const page = parseInt(req.query.page) - 1
+            // console.log(size, page)
             const query = { feedback: { $exists: true, $ne: null, $ne: false } };
-            const result = await commentsCollection.find(query).toArray()
+
+            const result = await commentsCollection
+                .find(query)
+                .skip(page * size)
+                .limit(size)
+                .toArray()
             res.send(result)
         })
+
+        // Get comments data count from db
+        app.get('/comments-count', async (req, res) => {
+            const query = { feedback: { $exists: true, $ne: null, $ne: false } };
+            const count = await commentsCollection.countDocuments(query)
+            res.send({ count })
+        })
+        // Reported Comments------------- --------------- ----
+
+
 
 
 
@@ -504,6 +458,14 @@ async function run() {
             res.send(result)
         })
 
+        app.post('/add-tags', verifyToken, verifyAdmin, async (req, res) => {
+            const tag = req.body;
+            const result = await tagsCollection.insertOne(tag);
+            res.send(result)
+
+
+        })
+
 
         // announcements related apis 
         app.get('/announcements', async (req, res) => {
@@ -552,7 +514,7 @@ async function run() {
                 }
             }
             const result = await usersCollection.updateOne(filter, updatedDoc);
-            console.log(result);
+            // console.log(result);
             res.send(result);
         })
 
@@ -563,7 +525,7 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         // await client.connect();
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
+        // await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
