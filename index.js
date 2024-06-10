@@ -79,7 +79,7 @@ async function run() {
         }
 
 
-        // auth related api
+        // auth related api (getting token)
         app.post('/jwt', async (req, res) => {
             const user = req.body
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -94,7 +94,7 @@ async function run() {
                 .send({ success: true })
         })
 
-        // Logout
+        // Logout jwt
         app.post('/logout', async (req, res) => {
             try {
                 res
