@@ -110,7 +110,7 @@ async function run() {
             }
         })
 
-
+        // #AdminHome
         app.post('/users', async (req, res) => {
             const user = req.body;
             // insert email if user doesnt exists: 
@@ -124,7 +124,7 @@ async function run() {
             res.send(result);
         });
 
-
+        // #Admin #Secure
         app.patch('/users/admin/:id', verifyToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             // console.log(id);
@@ -142,6 +142,7 @@ async function run() {
 
         // ManageUsers------------- --------------- -------------
         // get all users data
+        // #Admin #Secure
         app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             const size = parseInt(req.query.size)
             const page = parseInt(req.query.page) - 1
@@ -155,8 +156,9 @@ async function run() {
             res.send(result)
         })
 
-        // Get all users data count from db
-        app.get('/users-count', async (req, res) => {
+        // Get all users data count from db 
+        // #Admin #Secure
+        app.get('/users-count', verifyToken, verifyAdmin, async (req, res) => {
             const count = await usersCollection.countDocuments()
             res.send({ count })
         })
@@ -175,14 +177,14 @@ async function run() {
 
         // post related apis 
 
-
+        // #User #Secure 
         app.post('/posts', verifyToken, async (req, res) => {
             const newPost = req.body
             // console.log(newBook)
             const result = await postsCollection.insertOne(newPost)
             res.send(result)
         })
-
+        // #AdminHome 
         app.get('/all-posts-count', async (req, res) => {
             const result = await postsCollection.find().toArray()
             res.send(result)
@@ -196,6 +198,7 @@ async function run() {
             res.send(result);
         });
 
+        // #PostDetails 
         app.get('/post/:id', async (req, res) => {
             const id = req.params.id;
             // console.log(id);
@@ -205,7 +208,20 @@ async function run() {
             res.send(result);
         });
 
+        // about section 3 post get with email 
+        // #User #Secure 
+        app.get('/my-three-posts', verifyToken, async (req, res) => {
+            const email = req.query.email;
+            // console.log(email);
+            const query = { author_email: email }
+            let options = { sort: { post_time: -1 } }
+            const result = await postsCollection.find(query, options).limit(3).toArray();
+            // console.log(result);
+            res.send(result);
+        });
+
         // My Posts------------- --------------- -------------
+        // #User #Secure 
         app.get('/posts/:email', verifyToken, async (req, res) => {
             const size = parseInt(req.query.size)
             const page = parseInt(req.query.page) - 1
@@ -222,7 +238,8 @@ async function run() {
         })
 
         // Get all users data count from db
-        app.get('/my-posts-count', async (req, res) => {
+        // #User #Secure 
+        app.get('/my-posts-count', verifyToken, async (req, res) => {
             const query = { author_email: req.query.email }
             // console.log(req.query.email);
             const count = await postsCollection.countDocuments(query)
@@ -232,24 +249,25 @@ async function run() {
 
 
         // search related api 
-        app.get('/tag-posts', async (req, res) => {
-            const filter = req.query
-            // console.log(filter);
-            const query = {
-                tag: { $regex: filter.search, $options: 'i' }
-            }
+        // #Home Maybe not in use
+        // app.get('/tag-posts', async (req, res) => {
+        //     const filter = req.query
+        //     // console.log(filter);
+        //     const query = {
+        //         tag: { $regex: filter.search, $options: 'i' }
+        //     }
 
-            const options = {
-                sort: { post_time: -1 }
-            }
+        //     const options = {
+        //         sort: { post_time: -1 }
+        //     }
 
-            const cursor = postsCollection.find(query, options)
-            const result = await cursor.toArray()
-            // console.log(result);
-            res.send(result)
-        })
+        //     const cursor = postsCollection.find(query, options)
+        //     const result = await cursor.toArray()
+        //     // console.log(result);
+        //     res.send(result)
+        // })
 
-
+        // #Home 
         app.get('/all-posts', async (req, res) => {
             if (!req.query.size) {
                 req.query.size = '4'
@@ -304,6 +322,7 @@ async function run() {
 
 
         // Get all posts data count from db
+        // #Home 
         app.get('/posts-count', async (req, res) => {
             // const filter = req.query.filter
             const search = req.query.search
@@ -322,7 +341,7 @@ async function run() {
 
         // post vote related api 
 
-        app.put('/upvote/:id', async (req, res) => {
+        app.put('/upvote/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             // console.log(id);
             const query = { _id: new ObjectId(id) }
@@ -330,7 +349,7 @@ async function run() {
             res.send(result);
         });
 
-        app.put('/downvote/:id', async (req, res) => {
+        app.put('/downvote/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             // console.log(id);
             const query = { _id: new ObjectId(id) }
@@ -340,18 +359,14 @@ async function run() {
 
 
 
-
-
-
-
-
         //   comments related apis 
-
+        // #AdminHome 
         app.get('/all-comments', async (req, res) => {
             const result = await commentsCollection.find().toArray()
             res.send(result)
         })
 
+        // #Home
         app.post('/postComments', async (req, res) => {
             const newComment = req.body
             // console.log(newBook)
@@ -359,15 +374,9 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/comments/:id', async (req, res) => {
-            const id = req.params.id;
-            const query = { post_id: id }
-            const result = await commentsCollection.find(query).toArray()
-            res.send(result)
-        })
 
-
-        app.patch('/comments/:id', async (req, res) => {
+        // #User #Secure 
+        app.patch('/comments/:id', verifyToken, async (req, res) => {
             const feedback = req.body
             // console.log(feedback.feedback);
             // return
@@ -383,7 +392,34 @@ async function run() {
         })
 
 
-        app.get('/comments', async (req, res) => {
+        // Comments------------- --------------- ----
+        // #User #Secure #Home
+        app.get('/comments/:id', async (req, res) => {
+            const size = parseInt(req.query.size)
+            const page = parseInt(req.query.page) - 1
+            const id = req.params.id;
+            const query = { post_id: id }
+            const result = await commentsCollection
+                .find(query)
+                .skip(page * size)
+                .limit(size)
+                .toArray()
+
+            res.send(result)
+        })
+
+        app.get('/post-comments-count', async (req, res) => {
+            const id = req.query.id;
+            const query = { post_id: id }
+            const count = await commentsCollection.countDocuments(query)
+            res.send({ count })
+        })
+        // Comments------------- --------------- ----
+
+
+        // Reported Comments------------- --------------- ----
+        // #Admin #Secure
+        app.get('/comments', verifyToken, verifyAdmin, async (req, res) => {
             const size = parseInt(req.query.size)
             const page = parseInt(req.query.page) - 1
             // console.log(size, page)
@@ -398,7 +434,8 @@ async function run() {
         })
 
         // Get comments data count from db
-        app.get('/comments-count', async (req, res) => {
+        // #Admin #Secure
+        app.get('/comments-count', verifyToken, verifyAdmin, async (req, res) => {
             const query = { feedback: { $exists: true, $ne: null, $ne: false } };
             const count = await commentsCollection.countDocuments(query)
             res.send({ count })
@@ -410,7 +447,8 @@ async function run() {
 
 
         //   announcements related apis 
-        app.post('/announcements', verifyToken, async (req, res) => {
+        // #Admin #Secure
+        app.post('/announcements', verifyToken, verifyAdmin, async (req, res) => {
             const newPost = req.body
             // console.log(newBook)
             const result = await annCollection.insertOne(newPost)
@@ -419,6 +457,7 @@ async function run() {
 
 
         // violation warning related apis 
+        // #Admin #Secure
         app.patch('/users/give-warning/:email', verifyToken, verifyAdmin, async (req, res) => {
             const email = req.params.email;
             // console.log(email);
@@ -433,7 +472,7 @@ async function run() {
             res.send(result);
         })
 
-
+        // #Admin #Secure 
         app.patch('/users/remove-warning/:email', verifyToken, verifyAdmin, async (req, res) => {
             const email = req.params.email;
             // console.log(email);
@@ -453,11 +492,13 @@ async function run() {
 
 
         // tags related api 
+        // #Home #User
         app.get('/tags', async (req, res) => {
             const result = await tagsCollection.find().toArray()
             res.send(result)
         })
 
+        // #AdminHome  
         app.post('/add-tags', verifyToken, verifyAdmin, async (req, res) => {
             const tag = req.body;
             const result = await tagsCollection.insertOne(tag);
